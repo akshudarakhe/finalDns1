@@ -1,95 +1,108 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+
+type EmailRecord = {
+  email: string;
+  mxRecords: string[];
+  aRecords: string[];
+  spfRecords: string[]; 
+  error?: string;
+};
+
+export default function UploadPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<EmailRecord[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+      setResult(null); 
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      alert('Please upload a file');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setLoading(true);
+    setResult(null); 
+
+    try {
+      const res = await fetch('/api/verifyEmails', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Network response was not ok');
+      }
+
+      const data: EmailRecord[] = await res.json();
+      setResult(data);
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      alert(`Error uploading file: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div style={{ padding: '20px' }}>
+      <h1>Upload User Data File</h1>
+      <input type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
+      <button onClick={handleUpload} disabled={loading} style={{ marginLeft: '10px' }}>
+        {loading ? 'Verifying...' : 'Verify Emails'}
+      </button>
+      {result && (
+        <table style={{ width: '100%', marginTop: '20px', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Email</th>
+              <th style={thStyle}>MX Records</th>
+              <th style={thStyle}>A Records</th>
+              <th style={thStyle}>SPF Records</th> 
+            </tr>
+          </thead>
+          <tbody>
+            {result.map((emailData, idx) => (
+              <tr key={idx}>
+                <td style={tdStyle}>{emailData.email}</td>
+                <td style={tdStyle}>
+                  {emailData.mxRecords.length > 0 ? emailData.mxRecords.join(', ') : 'No MX records'}
+                </td>
+                <td style={tdStyle}>
+                  {emailData.aRecords.length > 0 ? emailData.aRecords.join(', ') : 'No A records'}
+                </td>
+                <td style={tdStyle}>
+                  {emailData.spfRecords.length > 0 ? emailData.spfRecords.join(', ') : 'No SPF records'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
+
+const thStyle: React.CSSProperties = {
+  border: '1px solid #ddd',
+  padding: '8px',
+  backgroundColor: '#f2f2f2',
+  textAlign: 'left',
+};
+
+const tdStyle: React.CSSProperties = {
+  border: '1px solid #ddd',
+  padding: '8px',
+  textAlign: 'left',
+};
